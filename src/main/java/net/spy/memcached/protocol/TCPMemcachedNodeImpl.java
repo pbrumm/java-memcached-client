@@ -30,9 +30,11 @@ public abstract class TCPMemcachedNodeImpl extends SpyObject
 	private final BlockingQueue<Operation> readQ;
 	private final BlockingQueue<Operation> inputQueue;
 	private final long opQueueMaxBlockTime;
+	private final long maxWaitForRead = 500;
 	// This has been declared volatile so it can be used as an availability
 	// indicator.
 	private volatile int reconnectAttempt=1;
+	private volatile long whenWriteFinished=0;
 	private SocketChannel channel;
 	private int toWrite=0;
 	protected Operation optimizedOp=null;
@@ -76,7 +78,7 @@ public abstract class TCPMemcachedNodeImpl extends SpyObject
 
 		writeQ.addAll(tmp);
 	}
-
+  
 	/* (non-Javadoc)
 	 * @see net.spy.memcached.MemcachedNode#destroyInputQueue()
 	 */
@@ -110,7 +112,7 @@ public abstract class TCPMemcachedNodeImpl extends SpyObject
 			op=removeCurrentReadOp();
 			if (op != getCurrentWriteOp()) {
 				getLogger().warn("Discarding partially completed op: %s", op);
-				op.cancel();
+				insertOp(op);
 			}
 		}
 
@@ -125,7 +127,20 @@ public abstract class TCPMemcachedNodeImpl extends SpyObject
 		getRbuf().clear();
 		toWrite=0;
 	}
-
+	// Check to see if the write has reached the limit for waiting on the command
+    // This occurs when the server is hung and not responding
+	public boolean hasWriteTimedOut() {
+	  long current = System.currentTimeMillis();
+      if(hasReadOp() && (current - whenWriteFinished) > maxWaitForRead)
+	  {  
+	    return true;
+	  }else
+	  {
+	    return false;
+	  }
+	}
+  
+  
 	// Prepare the pending operations.  Return true if there are any pending
 	// ops
 	private boolean preparePending() {
@@ -196,6 +211,7 @@ public abstract class TCPMemcachedNodeImpl extends SpyObject
 	 * @see net.spy.memcached.MemcachedNode#transitionWriteItem()
 	 */
 	public final void transitionWriteItem() {
+		whenWriteFinished = System.currentTimeMillis();
 		Operation op=removeCurrentWriteOp();
 		assert op != null : "There is no write item to transition";
 		getLogger().debug("Finished writing %s", op);

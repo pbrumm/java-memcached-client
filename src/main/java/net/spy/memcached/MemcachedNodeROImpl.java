@@ -93,7 +93,10 @@ class MemcachedNodeROImpl implements MemcachedNode {
 	public boolean hasReadOp() {
 		return root.hasReadOp();
 	}
-
+  
+    public boolean hasWriteTimedOut() {
+        return false;
+    }
 	public boolean hasWriteOp() {
 		return root.hasReadOp();
 	}

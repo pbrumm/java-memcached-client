@@ -69,7 +69,6 @@ public final class MemcachedConnection extends SpyObject {
 	private final int timeoutExceptionThreshold;
 	// timeout counter
 	private static AtomicInteger continuousTimeout = new AtomicInteger(0);
-
 	/**
 	 * whenever timeout exception occur, timeout counter increase by 1 until timeout exception threshold
 	 * but, if isIncrease is false, timeout counter will be reset
@@ -171,18 +170,27 @@ public final class MemcachedConnection extends SpyObject {
 		if(shutDown) {
 			throw new IOException("No IO while shut down");
 		}
-
+		
 		// Deal with all of the stuff that's been added, but may not be marked
 		// writable.
 		handleInputQueue();
 		getLogger().debug("Done dealing with queue.");
 
-		long delay=0;
+		long delay=10;
 		if(!reconnectQueue.isEmpty()) {
 			long now=System.currentTimeMillis();
 			long then=reconnectQueue.firstKey();
 			delay=Math.max(then-now, 1);
 		}
+		for(MemcachedNode qa : locator.getAll()) {
+			if(qa.hasWriteTimedOut())
+			{
+			  queueReconnect(qa);
+			  qa.fixupOps();
+			}
+			
+		}
+
 		getLogger().debug("Selecting with delay of %sms", delay);
 		assert selectorsMakeSense() : "Selectors don't make sense.";
 		int selected=selector.select(delay);
@@ -331,6 +339,11 @@ public final class MemcachedConnection extends SpyObject {
 			} else {
 				if(sk.isReadable()) {
 					handleReads(sk, qa);
+				}else  {
+				  if(qa.hasWriteTimedOut())
+				  {  
+					 throw new ConnectException();
+				  }
 				}
 				if(sk.isWritable()) {
 					handleWrites(sk, qa);
@@ -391,6 +404,7 @@ public final class MemcachedConnection extends SpyObject {
 		    // so we'll queue a reconnect if disconnected via an IOException
 		    throw new IOException("Disconnected unexpected, will reconnect.");
 		}
+		
 		while(read > 0) {
 			getLogger().debug("Read %d bytes", read);
 			rbuf.flip();

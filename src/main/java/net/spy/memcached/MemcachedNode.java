@@ -144,6 +144,10 @@ public interface MemcachedNode {
 	void setChannel(SocketChannel to);
 
 	/**
+	 * Check to see if the max wait for a read has expired.
+	 */
+	boolean hasWriteTimedOut();
+	/**
 	 * Get the SocketChannel for this connection.
 	 */
 	SocketChannel getChannel();
