@@ -36,7 +36,7 @@ public class DefaultLogger extends AbstractLogger {
 	 */
 	@Override
 	public boolean isInfoEnabled() {
-		return(true);
+		return(false);
 	}
 
 	/**
