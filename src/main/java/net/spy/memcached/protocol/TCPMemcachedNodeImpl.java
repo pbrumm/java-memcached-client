@@ -30,7 +30,7 @@ public abstract class TCPMemcachedNodeImpl extends SpyObject
 	private final BlockingQueue<Operation> readQ;
 	private final BlockingQueue<Operation> inputQueue;
 	private final long opQueueMaxBlockTime;
-	private final long maxWaitForRead = 500;
+	private final long maxWaitForRead = 20000;
 	// This has been declared volatile so it can be used as an availability
 	// indicator.
 	private volatile int reconnectAttempt=1;
