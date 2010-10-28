@@ -34,7 +34,7 @@ public abstract class TCPMemcachedNodeImpl extends SpyObject
 	// This has been declared volatile so it can be used as an availability
 	// indicator.
 	private volatile int reconnectAttempt=1;
-	private volatile long whenWriteFinished=0;
+	private volatile long whenWriteFinished=-1;
 	private SocketChannel channel;
 	private int toWrite=0;
 	protected Operation optimizedOp=null;
@@ -71,6 +71,7 @@ public abstract class TCPMemcachedNodeImpl extends SpyObject
 	 * @see net.spy.memcached.MemcachedNode#copyInputQueue()
 	 */
 	public final void copyInputQueue() {
+		whenWriteFinished = -1;
 		Collection<Operation> tmp=new ArrayList<Operation>();
 
 		// don't drain more than we have space to place
@@ -83,6 +84,7 @@ public abstract class TCPMemcachedNodeImpl extends SpyObject
 	 * @see net.spy.memcached.MemcachedNode#destroyInputQueue()
 	 */
 	public Collection<Operation> destroyInputQueue() {
+		whenWriteFinished = -1;
 		Collection<Operation> rv=new ArrayList<Operation>();
 		inputQueue.drainTo(rv);
 		return rv;
@@ -122,7 +124,7 @@ public abstract class TCPMemcachedNodeImpl extends SpyObject
 			op.cancel();
 		}
 
-
+		whenWriteFinished = -1;
 		getWbuf().clear();
 		getRbuf().clear();
 		toWrite=0;
@@ -131,8 +133,9 @@ public abstract class TCPMemcachedNodeImpl extends SpyObject
     // This occurs when the server is hung and not responding
 	public boolean hasWriteTimedOut() {
 	  long current = System.currentTimeMillis();
-      if(hasReadOp() && (current - whenWriteFinished) > maxWaitForRead)
+      if(hasReadOp() && whenWriteFinished > 0 && (current - whenWriteFinished) > maxWaitForRead)
 	  {  
+    	whenWriteFinished = -1;
 	    return true;
 	  }else
 	  {
